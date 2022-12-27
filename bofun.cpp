@@ -11,17 +11,19 @@ pthread_mutex_t companyMutexes[5];
 pthread_mutex_t customerMutexes[10];
 pthread_mutex_t finishMutex;
 vector<string> inputLines;
-
+bool check = false;
 int finished;
 class Customer{
     public:
         int amount;
         string company;
         bool prepaymentDone;
-        Customer(int a, string c){
+        int customerNo;
+        Customer(int a, string c, int cusNo){
             amount = a;
             company = c;
             prepaymentDone = false;
+            customerNo = cusNo;
         }
         Customer(){
             prepaymentDone = false;
@@ -132,37 +134,48 @@ void* processInfo(void *itr)
     cout << endl;
 
     int sleepTime = stoi(infoList[0]);
-    sleep(sleepTime/1000);
+    sleep(sleepTime/100);
     int vendingMachine = stoi(infoList[1])-1;
     pthread_mutex_lock(&customerMutexes[vendingMachine]);
-    Customer cus(amount, company);
+    Customer cus(amount, company, *(int*) itr);
     processingVMs[vendingMachine] = cus;
     pthread_mutex_unlock(&customerMutexes[vendingMachine]);
-    
+    while(!cus.prepaymentDone && check);
+    cout << "exiting customer thread" << *(int*)itr << "\n";
+    finished--;
     pthread_exit(0);
 }
 
 void* paymentRoutine(void *itr)
 {
-    int customerNo = *(int*) itr;
-    while(finished>0)
+    int vmNo = *(int*) itr;
+    while(true)
     {
-        if(!processingVMs[customerNo].prepaymentDone && processingVMs[customerNo].company!="")
-        {
-            pthread_mutex_lock(&customerMutexes[customerNo]);
-            int amount = processingVMs[customerNo].amount;
-            string company = processingVMs[customerNo].company;
+        check = false;
+        pthread_mutex_lock(&customerMutexes[vmNo]);
+        int amount = processingVMs[vmNo].amount;
+        string company = processingVMs[vmNo].company;
         
+        if(!processingVMs[vmNo].prepaymentDone && processingVMs[vmNo].company!="")
+        {
             performPayment(company, amount);
-            processingVMs[customerNo].prepaymentDone = true;
-            pthread_mutex_lock(&finishMutex);
-            finished--;
-            cout << finished;
+            processingVMs[vmNo].prepaymentDone = true;
+            check = true;
+
+     //       finished--;
+            
+     //       cout << finished;
             cout << endl;
-            pthread_mutex_unlock(&finishMutex);
-            pthread_mutex_unlock(&customerMutexes[customerNo]);
+        }
+        pthread_mutex_unlock(&customerMutexes[vmNo]);
+        
+        if(finished<=0){
+            break;
         }
     }
+    cout << "exiting..";
+    cout << vmNo;
+    cout << endl;
     free(itr);
     pthread_exit(0);
 }
