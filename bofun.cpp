@@ -140,7 +140,7 @@ void* processInfo(void *itr)
     Customer cus(amount, company, *(int*) itr);
     processingVMs[vendingMachine] = cus;
     pthread_mutex_unlock(&customerMutexes[vendingMachine]);
-    while(!cus.prepaymentDone && check);
+    while(!processingVMs[vendingMachine].prepaymentDone && processingVMs[vendingMachine].customerNo==*(int*)itr);
     cout << "exiting customer thread" << *(int*)itr << "\n";
     finished--;
     pthread_exit(0);
@@ -151,16 +151,15 @@ void* paymentRoutine(void *itr)
     int vmNo = *(int*) itr;
     while(true)
     {
-        check = false;
         pthread_mutex_lock(&customerMutexes[vmNo]);
         int amount = processingVMs[vmNo].amount;
         string company = processingVMs[vmNo].company;
         
-        if(!processingVMs[vmNo].prepaymentDone && processingVMs[vmNo].company!="")
+        if(!processingVMs[vmNo].prepaymentDone && processingVMs[vmNo].company!="" && processingVMs[vmNo].customerNo != -1)
         {
             performPayment(company, amount);
             processingVMs[vmNo].prepaymentDone = true;
-            check = true;
+            processingVMs[vmNo].customerNo = -1;
 
      //       finished--;
             
