@@ -10,7 +10,7 @@ using namespace std;
 
 pthread_mutex_t companyMutexes[5];
 pthread_mutex_t customerMutexes[10];
-pthread_mutex_t finishMutex;
+pthread_mutex_t finishedMutex;
 vector<string> inputLines;
 bool check = false;
 int finished;
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]){
     for(int i=0; i<5; i++)
         pthread_mutex_init(&companyMutexes[i], 0);
 
-    pthread_mutex_init(&finishMutex, 0);
+    pthread_mutex_init(&finishedMutex, 0);
 
     int *itr;
     pthread_t vendingIds[10];
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]){
         pthread_mutex_destroy(&customerMutexes[i]);
     for (int i = 0; i<5; i++)
         pthread_mutex_destroy(&companyMutexes[i]);
-    pthread_mutex_destroy(&finishMutex);
+    pthread_mutex_destroy(&finishedMutex);
 
     cout << "All prepayments are completed.\n";
     cout << "Kevin: ";
@@ -141,9 +141,9 @@ void* processInfo(void *itr)
     Customer cus(amount, company, *(int*) itr);
     vendingQueues[vendingMachine].push(cus);
     pthread_mutex_unlock(&customerMutexes[vendingMachine]);
-    while(!cus.prepaymentDone);
+   // while(!cus.prepaymentDone);
     cout << "exiting customer thread" << *(int*)itr << "\n";
-    finished--;
+
     pthread_exit(0);
 }
 
@@ -152,22 +152,24 @@ void* paymentRoutine(void *itr)
     int vmNo = *(int*) itr;
     while(true)
     {
-        while(vendingQueues[vmNo].empty());
-        pthread_mutex_lock(&customerMutexes[vmNo]);
+        if(!vendingQueues[vmNo].empty()){
+            pthread_mutex_lock(&customerMutexes[vmNo]);
 
-        Customer cus = vendingQueues[vmNo].front();
-            
-        int amount = cus.amount;
-        string company = cus.company;
-            
-        vendingQueues[vmNo].pop();
-        performPayment(company, amount);
-        cus.prepaymentDone = true;
-        pthread_mutex_unlock(&customerMutexes[vmNo]);
-        
+            int amount = vendingQueues[vmNo].front().amount;
+            string company = vendingQueues[vmNo].front().company;
+            vendingQueues[vmNo].front().prepaymentDone = true;
+
+            vendingQueues[vmNo].pop();
+            performPayment(company, amount);
+            pthread_mutex_unlock(&customerMutexes[vmNo]);
+            pthread_mutex_lock(&finishedMutex);
+            finished--;    
+            pthread_mutex_unlock(&finishedMutex);
+        }
         if(finished<=0){
             break;
         }
+        
     }
     cout << "exiting..";
     cout << vmNo;
