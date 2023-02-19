@@ -1,2 +1,2 @@
 bofun: main.cpp
-	g++ main.cpp -o bofun
+	g++ main.cpp -o simulation
